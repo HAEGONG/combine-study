@@ -19,10 +19,24 @@ example(of: "Create a Blackjack card dealer") {
     }
     
     // Add code to update dealtHand here
+    if hand.points > 21 {
+      dealtHand.send(completion: .failure(HandError.busted))
+    } else {
+      dealtHand.send(hand)
+    }
     
   }
   
   // Add subscription to dealtHand here
+  let subscription = dealtHand
+    .sink {
+      if case let .failure(error) = $0 {
+        print(error)
+      }
+    } receiveValue: { hand in
+      print("\(hand.cardString) : \(hand.points)")
+    }
+    .store(in: &subscriptions)
   
   
   deal(3)
