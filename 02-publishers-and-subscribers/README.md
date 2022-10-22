@@ -151,7 +151,65 @@ example(of: "assign(to:)") {
 }
 ```
 
-### Creating a custom subscriber
+## Hello Cancellable
+작업이 끝났을 때 각 subscription을 `cancel`하면 리소스 확보와 원치 않는 side effect를 방지할 수 있다.  
+subscription을 인스턴스나 컬렉션에 저장하여 deinitialization이 불려질 때 자동으로 cancel할 수 있다.  
+
+## Understanding what’s going on
+![flow](https://koenig-media.raywenderlich.com/uploads/2021/09/chapter-02-diagram-01-2-min.png)
+
+1. subscriber가 publisher를 구독
+2. publisher는 subscription을 생성해서 subscriber에게 전달
+3. subscriber가 값을 요청
+4. publisher가 값을 보냄
+5. publisher가 완료를 보냄
+
+
+```swift
+public protocol Publisher {
+  associatedtype Output
+  associatedtype Failure : Error
+
+  func receive<S>(subscriber: S)
+    where S: Subscriber,
+    Self.Failure == S.Failure,
+    Self.Output == S.Input
+}
+
+extension Publisher {
+  public func subscribe<S>(_ subscriber: S)
+    where S : Subscriber,
+    Self.Failure == S.Failure,
+    Self.Output == S.Input
+}
+```
+subscriber는 `subscribe(_:)`를 호출하여 publisher와 연결함  
+`subscribe(_:)`의 구현부는 `receive(subscriber:)`를 호출하여 subscriber를 publisher에 연결함. 즉, subscription을 생성
+
+
+```swift
+public protocol Subscriber: CustomCombineIdentifierConvertible {
+  associatedtype Input
+  associatedtype Failure: Error
+
+  func receive(subscription: Subscription)
+  func receive(_ input: Self.Input) -> Subscribers.Demand
+  func receive(completion: Subscribers.Completion<Self.Failure>)
+}
+```
+publisher는 receive(subscription:)를 호출하여 subscriber에게 subscription을 보냄  
+publisher는 receive(_:)를 호출하여 방금 publish된 새 값을 subscriber에게 보냄  
+publisher는 receive(completion:)를 호출하여 정상적으로 or 에러로 값 생성이 종료되었음을 알려줌
+
+
+```swift
+public protocol Subscription: Cancellable, CustomCombineIdentifierConvertible {
+  func request(_ demand: Subscribers.Demand)
+}
+```
+Subscription은 publisher와 subscriber 사이의 connection
+
+## Creating a custom subscriber
 Subscriber는 값을 받을 때마다 `demand`를 증가시킬 수 있지만 감소시킬 수는 없다
 ```swift
 example(of: "Custom Subscriber") {
@@ -228,9 +286,11 @@ example(of: "Future") {
 
 ## Hello Subject
 `Subject`는 outside caller가 subscriber에게 (with or without a starting value.) 비동기적으로 여러 값을 보낼 수 있는 publisher이다.  
+두 종류의 Subject
+* PassthroughSubject
+* CurrentValueSubject
 
 ### PassthroughSubject
-`PassthroughSubject`는 필요할 때 새 값을 publish할 수 있다.
 ```swift
 example(of: "PassthroughSubject") {
     enum MyError: Error {
