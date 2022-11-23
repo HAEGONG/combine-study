@@ -4,7 +4,29 @@ import Foundation
 // A subject you get values from
 let subject = PassthroughSubject<Int, Never>()
 
-<#Add your code here#>
+//let debounced = subject
+//    .debounce(for: .seconds(0.9), scheduler: DispatchQueue.main)
+
+let collectPublisher = subject
+    .collect(.byTime(DispatchQueue.main, .seconds(0.5)))
+    .map { integers in
+        String(integers.map { integer in Character(Unicode.Scalar(integer)!) })
+    }
+
+let emojiPublisher = subject
+    .measureInterval(using: DispatchQueue.main)
+    .filter { $0 > 0.9 }
+    .map { _ in "👏" }
+
+let subscription = collectPublisher
+    .merge(with: emojiPublisher)
+    .sink { print($0) }
+
+//let subscription = collectPublisher
+//    .sink { print($0) }
+//
+//let subscription2 = debounced
+//    .sink { _ in print("👏") }
 
 // Let's roll!
 startFeeding(subject: subject)
